@@ -138,8 +138,25 @@
 
         <details open>
           <summary>💰 Монетизация (цены в рублях)</summary>
-          <div class="param"><label>Покупка энергии (₽ за 1 доп. гонку)</label><input type="number" id="energyPrice" value="50" min="0"></div>
+          <div class="param"><label>Энерго-пак: цена (₽)</label><input type="number" id="packPrice" value="50" min="0"></div>
+          <div class="param"><label>Энерго-пак: гонок в паке</label><input type="number" id="packSize" value="5" min="1"></div>
+          <div class="param"><label>Макс. паков в день</label><input type="number" id="maxPacksDay" value="5" min="1"></div>
+          <div class="param"><label>Буст: % дней с бустом</label><input type="number" id="boostChance" value="10" min="0" max="100"></div>
+          <div class="param"><label>Буст: множитель наград</label><input type="number" id="boostMultiplier" value="1.5" min="1" step="0.1"></div>
           <div class="param"><label>Battle Pass Premium (₽ за сезон)</label><input type="number" id="bpPrice" value="150" min="0"></div>
+          <p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem">Поведение покупки энергии:</p>
+          <div class="param-row">
+            <div class="param"><label>Дельфин: «почти хватает» %</label><input type="number" id="almostEnough_dolphin" value="60" min="0" max="100"></div>
+            <div class="param"><label>Кит: «почти хватает» %</label><input type="number" id="almostEnough_whale" value="90" min="0" max="100"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Дельфин: в дни буста %</label><input type="number" id="boostBuy_dolphin" value="50" min="0" max="100"></div>
+            <div class="param"><label>Кит: в дни буста %</label><input type="number" id="boostBuy_whale" value="85" min="0" max="100"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Дельфин: «просто поиграть» %</label><input type="number" id="justPlay_dolphin" value="15" min="0" max="100"></div>
+            <div class="param"><label>Кит: «просто поиграть» %</label><input type="number" id="justPlay_whale" value="35" min="0" max="100"></div>
+          </div>
         </details>
 
         <details open>
@@ -205,13 +222,12 @@
               </div>
             </details>
             <details class="persona-card">
-              <summary><span class="icon">🐬</span><span class="name">Дельфин</span><span class="desc">Premium BP, иногда энергия</span><span class="result" id="result_dolphin">—</span></summary>
+              <summary><span class="icon">🐬</span><span class="name">Дельфин</span><span class="desc">Premium BP, ситуативная покупка энергии</span><span class="result" id="result_dolphin">—</span></summary>
               <div class="body">
                 <div class="param"><label>Гонок/день</label><input type="text" id="races_dolphin" value="20±5"></div>
                 <div class="param"><label>Дней пропуска</label><input type="number" id="skip_dolphin" value="0" min="0"></div>
                 <div class="param"><label>Скилл</label><input type="text" id="skill_dolphin" value="2.2±1"></div>
                 <div class="param"><label>Квесты %</label><input type="number" id="quest_dolphin" value="90"></div>
-                <div class="param"><label>Покупка энергии (гонок/день)</label><input type="number" id="energy_dolphin" value="2" min="0" title="Дельфины обычно 1-2 доп. гонки, не каждый день"></div>
               </div>
             </details>
             <details class="persona-card">
@@ -221,7 +237,6 @@
                 <div class="param"><label>Дней пропуска</label><input type="number" id="skip_whale" value="0" min="0"></div>
                 <div class="param"><label>Скилл</label><input type="text" id="skill_whale" value="2±0.8"></div>
                 <div class="param"><label>Квесты %</label><input type="number" id="quest_whale" value="95"></div>
-                <div class="param"><label>Покупка энергии (гонок/день)</label><input type="number" id="energy_whale" value="20" min="0"></div>
               </div>
             </details>
           </div>
@@ -315,8 +330,15 @@
         bpFreeCurrency: +document.getElementById('bpFreeCurrency').value||3000,
         bpPremiumCurrency: +document.getElementById('bpPremiumCurrency').value||7500,
         bpEnergyPacks: +document.getElementById('bpEnergyPacks').value||30,
-        energyPrice: +document.getElementById('energyPrice')?.value||50,
+        packPrice: +document.getElementById('packPrice')?.value||50,
+        packSize: Math.max(1, +document.getElementById('packSize')?.value||5),
+        maxPacksDay: Math.max(1, +document.getElementById('maxPacksDay')?.value||5),
+        boostChance: (+document.getElementById('boostChance')?.value||10)/100,
+        boostMultiplier: +document.getElementById('boostMultiplier')?.value||1.5,
         bpPrice: +document.getElementById('bpPrice')?.value||150,
+        almostEnough: { dolphin: (+document.getElementById('almostEnough_dolphin')?.value||60)/100, whale: (+document.getElementById('almostEnough_whale')?.value||90)/100 },
+        boostBuy: { dolphin: (+document.getElementById('boostBuy_dolphin')?.value||50)/100, whale: (+document.getElementById('boostBuy_whale')?.value||85)/100 },
+        justPlay: { dolphin: (+document.getElementById('justPlay_dolphin')?.value||15)/100, whale: (+document.getElementById('justPlay_whale')?.value||35)/100 },
         skins: skins,
         simCount: +document.getElementById('simCount').value||1000,
         seed: +document.getElementById('seed').value||0,
@@ -332,7 +354,6 @@
         skip: { hardcore:0, active:1, casual:3, dolphin:0, whale:0 },
         skill: { hardcore:parseSkill('skill_hardcore'), active:parseSkill('skill_active'), casual:parseSkill('skill_casual'), dolphin:parseSkill('skill_dolphin'), whale:parseSkill('skill_whale') },
         quest: { hardcore:100, active:80, casual:40, dolphin:90, whale:95 },
-        energy: { hardcore:0, active:0, casual:0, dolphin: +document.getElementById('energy_dolphin').value||5, whale: +document.getElementById('energy_whale').value||20 },
         buySkins: { hardcore:false, active:0.5, casual:false, dolphin:true, whale:true },
         hasBP: { hardcore:false, active:false, casual:false, dolphin:true, whale:true }
       };
@@ -352,13 +373,12 @@
       const racesCfg = p.races[type];
       const skillCfg = p.skill[type];
       const questPct = (+document.getElementById('quest_'+type).value||80)/100;
-      const energyBuy = p.energy[type]||0;
       const buySkins = type==='active' ? ((+document.getElementById('skin_active').value||50)/100) : (p.buySkins[type]?1:0);
       const hasBP = p.hasBP[type];
+      const isPayer = type==='dolphin' || type==='whale';
 
       const parts = p.partsCount;
       const partLevels = Array(parts).fill(1);
-      const totalUpgCost = p.upgCosts.reduce((a,b)=>a+b,0);
       const skinCosts = SKIN_LEVELS.map(l=>p.skins[l]||0);
 
       let currency = 0;
@@ -379,8 +399,21 @@
       let revenueBP = 0;
 
       const playProb = (7 - skipDays) / 7;
-      const energyPrice = p.energyPrice || 50;
+      const packPrice = p.packPrice || 50;
+      const packSize = p.packSize || 5;
+      const maxPacksDay = p.maxPacksDay || 5;
       const bpPrice = p.bpPrice || 150;
+      const avgReward = (p.rewards[1]+p.rewards[2]+p.rewards[3]+p.rewards[4]+p.rewards[5]+p.rewards[6]) / 6;
+
+      const runRaces = (count, mult) => {
+        let inc = 0;
+        for(let r = 0; r < count; r++) {
+          let pos = Math.round(gaussian(rand, skillCfg.mean, skillCfg.std));
+          pos = Math.max(1, Math.min(6, pos));
+          inc += p.rewards[pos] * mult;
+        }
+        return inc;
+      };
 
       for(let day = 1; day <= p.horizon; day++) {
         if(rand() > playProb) {
@@ -392,27 +425,43 @@
         }
 
         if(hasBP && (day - 1) % bpDayInSeason === 0) revenueBP += bpPrice;
-        revenueEnergy += energyBuy * energyPrice;
 
-        let racesToday = Math.max(0, Math.min(p.dailyRaces + energyBuy, Math.round(gaussian(rand, racesCfg.mean, racesCfg.std))));
-        let raceIncome = 0;
-        for(let r = 0; r < racesToday; r++) {
-          let pos = Math.round(gaussian(rand, skillCfg.mean, skillCfg.std));
-          pos = Math.max(1, Math.min(6, pos));
-          raceIncome += p.rewards[pos];
+        const isBoostDay = rand() < p.boostChance;
+        const rewardMultiplier = isBoostDay ? p.boostMultiplier : 1;
+        const packValue = packSize * avgReward * rewardMultiplier;
+
+        let freeRaces = Math.max(0, Math.min(p.dailyRaces, Math.round(gaussian(rand, racesCfg.mean, racesCfg.std))));
+        let raceIncome = runRaces(freeRaces, rewardMultiplier);
+
+        let packsToday = 0;
+        if(isPayer) {
+          const minLevel = Math.min(...partLevels);
+          const deficit = minLevel < 10 ? Math.max(0, p.upgCosts[minLevel - 1] - currency) : 0;
+          const almostEnoughChance = p.almostEnough[type] || 0;
+          const boostBuyChance = p.boostBuy[type] || 0;
+          const justPlayChance = p.justPlay[type] || 0;
+
+          if(deficit > 0 && deficit <= packValue * 2 && rand() < almostEnoughChance) {
+            packsToday = Math.min(maxPacksDay, Math.ceil(deficit / packValue));
+          }
+          if(isBoostDay && packsToday === 0 && rand() < boostBuyChance) {
+            packsToday = 1 + Math.floor(rand() * 2);
+          }
+          if(packsToday === 0 && rand() < justPlayChance) {
+            packsToday = 1;
+          }
+          packsToday = Math.min(packsToday, maxPacksDay);
+          revenueEnergy += packsToday * packPrice;
+          raceIncome += runRaces(packsToday * packSize, rewardMultiplier);
         }
 
         let questIncome = rand() < questPct ? p.dailyQuestReward : p.dailyQuestReward * 0.5;
         dayInSeason = (dayInSeason % bpDayInSeason) + 1;
         let bpIncome = p.bpFreeCurrency / bpDayInSeason;
         if(hasBP) bpIncome += p.bpPremiumCurrency / bpDayInSeason;
-        const extraRaces = hasBP ? Math.floor((p.bpEnergyPacks / bpDayInSeason) * racesToday / p.dailyRaces) : 0;
-        racesToday += extraRaces;
-        for(let r = 0; r < extraRaces; r++) {
-          let pos = Math.round(gaussian(rand, skillCfg.mean, skillCfg.std));
-          pos = Math.max(1, Math.min(6, pos));
-          raceIncome += p.rewards[pos];
-        }
+        const totalRacesSoFar = freeRaces + packsToday * packSize;
+        const extraRaces = hasBP ? Math.floor((p.bpEnergyPacks / bpDayInSeason) * totalRacesSoFar / Math.max(1, p.dailyRaces)) : 0;
+        raceIncome += runRaces(extraRaces, rewardMultiplier);
 
         const dailyIncome = raceIncome + questIncome + bpIncome;
         currency += dailyIncome;
@@ -558,6 +607,14 @@
         const rev = byType[t].reduce((s,p)=>s+(p.revenueTotal||0),0);
         verdictHtml += `${typeNames[t]}: ${Math.round(rev).toLocaleString('ru')} ₽ `;
       });
+      const dolphinRevArr = byType.dolphin?.map(p=>p.revenueTotal||0) || [];
+      const whaleRevArr = byType.whale?.map(p=>p.revenueTotal||0) || [];
+      const dolphinMedRev = percentile(dolphinRevArr, 50);
+      const whaleMedRev = percentile(whaleRevArr, 50);
+      const dolphinMonthly = dolphinMedRev && params.horizon ? Math.round(dolphinMedRev / params.horizon * 30) : 0;
+      const whaleMonthly = whaleMedRev && params.horizon ? Math.round(whaleMedRev / params.horizon * 30) : 0;
+      verdictHtml += '<br><span style="color:var(--text-dim)">Траты в месяц:</span> ';
+      verdictHtml += `Дельфин ~${dolphinMonthly.toLocaleString('ru')} ₽/мес · Кит ~${whaleMonthly.toLocaleString('ru')} ₽/мес`;
       document.getElementById('verdictBlock').innerHTML = verdictHtml;
 
       TYPES.forEach(t=>{
@@ -783,7 +840,17 @@
       params.set('bpFreeCurrency', p.bpFreeCurrency);
       params.set('bpPremiumCurrency', p.bpPremiumCurrency);
       params.set('bpEnergyPacks', p.bpEnergyPacks);
-      params.set('energyPrice', p.energyPrice);
+      params.set('packPrice', p.packPrice);
+      params.set('packSize', p.packSize);
+      params.set('maxPacksDay', p.maxPacksDay);
+      params.set('boostChance', p.boostChance*100);
+      params.set('boostMultiplier', p.boostMultiplier);
+      params.set('almostEnough_dolphin', p.almostEnough.dolphin*100);
+      params.set('almostEnough_whale', p.almostEnough.whale*100);
+      params.set('boostBuy_dolphin', p.boostBuy.dolphin*100);
+      params.set('boostBuy_whale', p.boostBuy.whale*100);
+      params.set('justPlay_dolphin', p.justPlay.dolphin*100);
+      params.set('justPlay_whale', p.justPlay.whale*100);
       params.set('bpPrice', p.bpPrice);
       params.set('skin2', p.skins[2]);
       params.set('skin4', p.skins[4]);
@@ -809,7 +876,17 @@
       if(params.has('bpFreeCurrency')) document.getElementById('bpFreeCurrency').value = params.get('bpFreeCurrency');
       if(params.has('bpPremiumCurrency')) document.getElementById('bpPremiumCurrency').value = params.get('bpPremiumCurrency');
       if(params.has('bpEnergyPacks')) document.getElementById('bpEnergyPacks').value = params.get('bpEnergyPacks');
-      if(params.has('energyPrice') && document.getElementById('energyPrice')) document.getElementById('energyPrice').value = params.get('energyPrice');
+      if(params.has('packPrice') && document.getElementById('packPrice')) document.getElementById('packPrice').value = params.get('packPrice');
+      if(params.has('packSize') && document.getElementById('packSize')) document.getElementById('packSize').value = params.get('packSize');
+      if(params.has('maxPacksDay') && document.getElementById('maxPacksDay')) document.getElementById('maxPacksDay').value = params.get('maxPacksDay');
+      if(params.has('boostChance') && document.getElementById('boostChance')) document.getElementById('boostChance').value = params.get('boostChance');
+      if(params.has('boostMultiplier') && document.getElementById('boostMultiplier')) document.getElementById('boostMultiplier').value = params.get('boostMultiplier');
+      if(params.has('almostEnough_dolphin')) document.getElementById('almostEnough_dolphin').value = params.get('almostEnough_dolphin');
+      if(params.has('almostEnough_whale')) document.getElementById('almostEnough_whale').value = params.get('almostEnough_whale');
+      if(params.has('boostBuy_dolphin')) document.getElementById('boostBuy_dolphin').value = params.get('boostBuy_dolphin');
+      if(params.has('boostBuy_whale')) document.getElementById('boostBuy_whale').value = params.get('boostBuy_whale');
+      if(params.has('justPlay_dolphin')) document.getElementById('justPlay_dolphin').value = params.get('justPlay_dolphin');
+      if(params.has('justPlay_whale')) document.getElementById('justPlay_whale').value = params.get('justPlay_whale');
       if(params.has('bpPrice') && document.getElementById('bpPrice')) document.getElementById('bpPrice').value = params.get('bpPrice');
       [2,4,6,8,10].forEach(l=>{ if(params.has('skin'+l)) document.getElementById('skin'+l).value = params.get('skin'+l); });
       if(params.has('simCount')) document.getElementById('simCount').value = params.get('simCount');
@@ -837,7 +914,17 @@
       document.getElementById('bpFreeCurrency').value = 3000;
       document.getElementById('bpPremiumCurrency').value = 7500;
       document.getElementById('bpEnergyPacks').value = 30;
-      if(document.getElementById('energyPrice')) document.getElementById('energyPrice').value = 50;
+      if(document.getElementById('packPrice')) document.getElementById('packPrice').value = 50;
+      if(document.getElementById('packSize')) document.getElementById('packSize').value = 5;
+      if(document.getElementById('maxPacksDay')) document.getElementById('maxPacksDay').value = 5;
+      if(document.getElementById('boostChance')) document.getElementById('boostChance').value = 10;
+      if(document.getElementById('boostMultiplier')) document.getElementById('boostMultiplier').value = 1.5;
+      if(document.getElementById('almostEnough_dolphin')) document.getElementById('almostEnough_dolphin').value = 60;
+      if(document.getElementById('almostEnough_whale')) document.getElementById('almostEnough_whale').value = 90;
+      if(document.getElementById('boostBuy_dolphin')) document.getElementById('boostBuy_dolphin').value = 50;
+      if(document.getElementById('boostBuy_whale')) document.getElementById('boostBuy_whale').value = 85;
+      if(document.getElementById('justPlay_dolphin')) document.getElementById('justPlay_dolphin').value = 15;
+      if(document.getElementById('justPlay_whale')) document.getElementById('justPlay_whale').value = 35;
       if(document.getElementById('bpPrice')) document.getElementById('bpPrice').value = 150;
       [300,600,1000,1600,2500].forEach((v,i)=>document.getElementById(['skin2','skin4','skin6','skin8','skin10'][i]).value = v);
       document.getElementById('simCount').value = 1000;
@@ -868,8 +955,6 @@
       document.getElementById('quest_casual').value = 40;
       document.getElementById('quest_dolphin').value = 90;
       document.getElementById('quest_whale').value = 95;
-      document.getElementById('energy_dolphin').value = 2;
-      document.getElementById('energy_whale').value = 20;
       document.getElementById('skin_active').value = 50;
       updateUpgTotal();
       updateSkinTotal();
