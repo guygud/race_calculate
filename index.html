@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏎️ Racing Game Progression Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --card: #1e2a4a;
+      --accent: #4FC3F7;
+      --positive: #66BB6A;
+      --warning: #FFA726;
+      --negative: #EF5350;
+      --text: #e0e0e0;
+      --text-dim: #9e9e9e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 1600px; margin: 0 auto; padding: 1rem; }
+    .header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0; font-size: 1.5rem; }
+    .header .btn { padding: 0.5rem 1rem; border-radius: 8px; border: none; cursor: pointer; background: var(--accent); color: var(--bg); font-weight: 600; }
+    .header .btn:hover { opacity: 0.9; }
+    .header .btn.secondary { background: var(--surface); color: var(--text); }
+    .layout { display: grid; grid-template-columns: 380px 1fr; gap: 1.5rem; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: var(--surface); border-radius: 12px; padding: 1rem; }
+    .panel h2 { margin: 0 0 0.75rem; font-size: 1rem; }
+    details { margin-bottom: 0.5rem; }
+    details summary { cursor: pointer; padding: 0.5rem; background: var(--card); border-radius: 8px; }
+    details[open] summary { margin-bottom: 0.5rem; }
+    .param { margin-bottom: 0.75rem; }
+    .param label { display: block; font-size: 0.85rem; margin-bottom: 0.25rem; color: var(--text-dim); }
+    .param input { width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--card); background: var(--bg); color: var(--text); }
+    .param-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .kpi-card { background: var(--card); padding: 1rem; border-radius: 8px; text-align: center; }
+    .kpi-card .label { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+    .kpi-card .p10 { color: var(--negative); font-size: 0.9rem; }
+    .kpi-card .median { color: var(--positive); font-size: 1.1rem; font-weight: bold; }
+    .kpi-card .p90 { color: var(--accent); font-size: 0.9rem; }
+    .chart-container { position: relative; height: 280px; margin-bottom: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 0.4rem; border: 1px solid var(--card); text-align: center; }
+    th { background: var(--card); }
+    .overflow { color: var(--negative); }
+    .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--positive); color: var(--bg); padding: 1rem 1.5rem; border-radius: 8px; animation: fadeIn 0.3s; z-index: 1000; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .progress-bar { height: 8px; background: var(--card); border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
+    .progress-bar div { height: 100%; background: var(--accent); transition: width 0.2s; }
+    .preset-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .preset-btns button { padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+    .preset-btns button:hover { background: var(--accent); color: var(--bg); }
+    .health { font-size: 1.2rem; }
+    select { padding: 0.4rem; border-radius: 6px; border: 1px solid var(--card); background: var(--bg); color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏎️ Racing Game Progression Calculator</h1>
+      <button class="btn" onclick="copyLink()">📋 Скопировать ссылку</button>
+      <button class="btn secondary" onclick="resetDefaults()">⟲ Сбросить к дефолтам</button>
+    </div>
+
+    <div class="layout">
+      <div class="panel params-panel">
+        <div class="preset-btns">
+          <button onclick="applyPreset('current')">Текущий баланс</button>
+          <button onclick="applyPreset('aggressive')">Агрессивная монетизация</button>
+          <button onclick="applyPreset('generous')">Щедрый F2P</button>
+        </div>
+
+        <details open>
+          <summary>🏁 Гонки и награды</summary>
+          <div class="param"><label>Бесплатных гонок в день</label><input type="number" id="dailyRaces" min="1" value="15"></div>
+          <div class="param-row">
+            <div class="param"><label>Награда 1 место</label><input type="number" id="reward1" value="120"></div>
+            <div class="param"><label>Награда 2 место</label><input type="number" id="reward2" value="90"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Награда 3 место</label><input type="number" id="reward3" value="70"></div>
+            <div class="param"><label>Награда 4 место</label><input type="number" id="reward4" value="40"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Награда 5 место</label><input type="number" id="reward5" value="30"></div>
+            <div class="param"><label>Награда 6 место</label><input type="number" id="reward6" value="20"></div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>🔧 Апгрейды запчастей</summary>
+          <div class="param"><label>Количество запчастей</label><input type="number" id="partsCount" min="1" max="8" value="4"></div>
+          <div class="param-row">
+            <div class="param"><label>Ур. 1→2</label><input type="number" id="upg1" value="100"></div>
+            <div class="param"><label>Ур. 2→3</label><input type="number" id="upg2" value="150"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Ур. 3→4</label><input type="number" id="upg3" value="225"></div>
+            <div class="param"><label>Ур. 4→5</label><input type="number" id="upg4" value="340"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Ур. 5→6</label><input type="number" id="upg5" value="510"></div>
+            <div class="param"><label>Ур. 6→7</label><input type="number" id="upg6" value="765"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Ур. 7→8</label><input type="number" id="upg7" value="1150"></div>
+            <div class="param"><label>Ур. 8→9</label><input type="number" id="upg8" value="1725"></div>
+          </div>
+          <div class="param"><label>Ур. 9→10</label><input type="number" id="upg9" value="2600"></div>
+          <p class="param" style="margin-top:0.5rem;font-size:0.85rem;color:var(--text-dim)" id="upgTotal"></p>
+        </details>
+
+        <details open>
+          <summary>📋 Ежедневные квесты</summary>
+          <div class="param"><label>Награда за квесты в день</label><input type="number" id="dailyQuestReward" value="450"></div>
+          <div class="param"><label>Вероятность выполнения квестов (%)</label><input type="number" id="questCompletionRate" min="0" max="100" value="80"></div>
+        </details>
+
+        <details open>
+          <summary>🎖️ Battle Pass</summary>
+          <div class="param"><label>Длительность сезона (дней)</label><input type="number" id="bpDays" value="14"></div>
+          <div class="param"><label>Уровней в BP</label><input type="number" id="bpLevels" value="20"></div>
+          <div class="param"><label>Валюта Free BP (за сезон)</label><input type="number" id="bpFreeCurrency" value="3000"></div>
+          <div class="param"><label>Валюта Premium BP (за сезон)</label><input type="number" id="bpPremiumCurrency" value="7500"></div>
+          <div class="param"><label>Энерго-паки Premium BP (гонок)</label><input type="number" id="bpEnergyPacks" value="30"></div>
+        </details>
+
+        <details open>
+          <summary>🎨 Скины</summary>
+          <div class="param-row">
+            <div class="param"><label>Скин ур.2</label><input type="number" id="skin2" value="300"></div>
+            <div class="param"><label>Скин ур.4</label><input type="number" id="skin4" value="600"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Скин ур.6</label><input type="number" id="skin6" value="1000"></div>
+            <div class="param"><label>Скин ур.8</label><input type="number" id="skin8" value="1600"></div>
+          </div>
+          <div class="param"><label>Скин ур.10</label><input type="number" id="skin10" value="2500"></div>
+          <p class="param" style="margin-top:0.5rem;font-size:0.85rem;color:var(--text-dim)" id="skinTotal"></p>
+        </details>
+
+        <details open>
+          <summary>👥 Типы игроков</summary>
+          <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.5rem">% от игроков (должно = 100)</p>
+          <div class="param-row">
+            <div class="param"><label>Хардкор %</label><input type="number" id="pct_hardcore" value="10"></div>
+            <div class="param"><label>Активный F2P %</label><input type="number" id="pct_active" value="25"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Казуал %</label><input type="number" id="pct_casual" value="40"></div>
+            <div class="param"><label>Дельфин %</label><input type="number" id="pct_dolphin" value="15"></div>
+          </div>
+          <div class="param"><label>Кит %</label><input type="number" id="pct_whale" value="10"></div>
+          <p style="font-size:0.8rem;margin-top:0.5rem">Гонок/день (среднее ± разброс)</p>
+          <div class="param-row">
+            <div class="param"><label>Хардкор</label><input type="text" id="races_hardcore" value="15±2" placeholder="mean±std"></div>
+            <div class="param"><label>Активный</label><input type="text" id="races_active" value="12±3"></div>
+          </div>
+          <div class="param-row">
+            <div class="param"><label>Казуал</label><input type="text" id="races_casual" value="6±4"></div>
+            <div class="param"><label>Дельфин</label><input type="text" id="races_dolphin" value="20±5"></div>
+          </div>
+          <div class="param"><label>Кит</label><input type="text" id="races_whale" value="35±10"></div>
+          <p style="font-size:0.8rem;margin-top:0.5rem">Дней пропуска в неделю</p>
+          <div class="param-row">
+            <div class="param"><label>Хардкор</label><input type="number" id="skip_hardcore" value="0" min="0"></div>
+            <div class="param"><label>Активный</label><input type="number" id="skip_active" value="1" min="0"></div>
+            <div class="param"><label>Казуал</label><input type="number" id="skip_casual" value="3" min="0"></div>
+            <div class="param"><label>Дельфин</label><input type="number" id="skip_dolphin" value="0" min="0"></div>
+            <div class="param"><label>Кит</label><input type="number" id="skip_whale" value="0" min="0"></div>
+          </div>
+          <p style="font-size:0.8rem;margin-top:0.5rem">Скилл (средняя позиция 1-6)</p>
+          <div class="param-row">
+            <div class="param"><label>Хардкор</label><input type="text" id="skill_hardcore" value="1.8±0.8"></div>
+            <div class="param"><label>Активный</label><input type="text" id="skill_active" value="2.5±1"></div>
+            <div class="param"><label>Казуал</label><input type="text" id="skill_casual" value="3.5±1.5"></div>
+            <div class="param"><label>Дельфин</label><input type="text" id="skill_dolphin" value="2.2±1"></div>
+            <div class="param"><label>Кит</label><input type="text" id="skill_whale" value="2±0.8"></div>
+          </div>
+          <p style="font-size:0.8rem;margin-top:0.5rem">Квесты выполнены %</p>
+          <div class="param-row">
+            <div class="param"><label>Хардкор</label><input type="number" id="quest_hardcore" value="100"></div>
+            <div class="param"><label>Активный</label><input type="number" id="quest_active" value="80"></div>
+            <div class="param"><label>Казуал</label><input type="number" id="quest_casual" value="40"></div>
+            <div class="param"><label>Дельфин</label><input type="number" id="quest_dolphin" value="90"></div>
+            <div class="param"><label>Кит</label><input type="number" id="quest_whale" value="95"></div>
+          </div>
+          <p style="font-size:0.8rem;margin-top:0.5rem">Покупка энергии (гонок/день)</p>
+          <div class="param-row">
+            <div class="param"><label>Дельфин</label><input type="number" id="energy_dolphin" value="5" min="0"></div>
+            <div class="param"><label>Кит</label><input type="number" id="energy_whale" value="20" min="0"></div>
+          </div>
+          <p style="font-size:0.8rem;margin-top:0.5rem">Покупает скины</p>
+          <div class="param-row">
+            <div class="param"><label>Активный (50%=иногда)</label><input type="number" id="skin_active" value="50" min="0" max="100"></div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>⚙️ Симуляция</summary>
+          <div class="param"><label>Количество игроков</label><input type="number" id="simCount" min="100" value="1000"></div>
+          <div class="param"><label>Seed (0 = рандом)</label><input type="number" id="seed" value="0"></div>
+          <div class="param"><label>Горизонт (дней)</label><input type="number" id="horizon" min="30" value="90"></div>
+        </details>
+      </div>
+
+      <div class="panel results-panel">
+        <div id="progressContainer" style="display:none">
+          <p>Симуляция...</p>
+          <div class="progress-bar"><div id="progressBar" style="width:0%"></div></div>
+        </div>
+        <div id="healthIndicator" class="health" style="margin-bottom:1rem"></div>
+        <div class="kpi-grid" id="kpiGrid"></div>
+        <div id="progressionTable"></div>
+        <div class="chart-container"><canvas id="chartProgression"></canvas></div>
+        <div class="chart-container"><canvas id="chartPaywall"></canvas></div>
+        <div class="chart-container"><canvas id="chartBalance"></canvas></div>
+        <div style="margin-bottom:1rem">
+          <label>Тип для графика доход/расход: </label>
+          <select id="incomeChartType" onchange="updateIncomeChart()">
+            <option value="hardcore">Хардкор</option>
+            <option value="active">Активный F2P</option>
+            <option value="casual">Казуал</option>
+            <option value="dolphin">Дельфин</option>
+            <option value="whale">Кит</option>
+          </select>
+        </div>
+        <div class="chart-container"><canvas id="chartIncome"></canvas></div>
+        <div class="chart-container"><canvas id="chartDistribution"></canvas></div>
+        <div id="detailTable"></div>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast" style="display:none">Скопировано!</div>
+
+  <script>
+    const TYPES = ['hardcore','active','casual','dolphin','whale'];
+    const REWARDS = [120,90,70,40,30,20];
+    const UPG_COSTS = [100,150,225,340,510,765,1150,1725,2600];
+    const SKIN_LEVELS = [2,4,6,8,10];
+
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function gaussian(rand, mean, std) {
+      let u=0,v=0; while(u===0)u=rand(); while(v===0)v=rand();
+      return mean + std * Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+    }
+
+    function getParams() {
+      const upg = [];
+      for(let i=1;i<=9;i++) upg.push(+(document.getElementById('upg'+i).value)||0);
+      const skins = {};
+      [2,4,6,8,10].forEach(l=>skins[l]=+(document.getElementById('skin'+l).value)||0);
+      const parseRaces = id => {
+        const v = document.getElementById(id).value;
+        const [m,s]=v.split('±').map(x=>+x.trim()||0);
+        return {mean:m||15,std:s||2};
+      };
+      const parseSkill = id => {
+        const v = document.getElementById(id).value;
+        const [m,s]=v.split('±').map(x=>+x.trim()||0);
+        return {mean:m||2.5,std:s||1};
+      };
+      return {
+        dailyRaces: +document.getElementById('dailyRaces').value||15,
+        rewards: [0,...REWARDS.map((r,i)=>+(document.getElementById('reward'+(i+1)).value)||r)],
+        partsCount: Math.min(8,Math.max(1,+document.getElementById('partsCount').value)||4),
+        upgCosts: upg,
+        dailyQuestReward: +document.getElementById('dailyQuestReward').value||450,
+        questCompletionRate: (+document.getElementById('questCompletionRate').value||80)/100,
+        bpDays: +document.getElementById('bpDays').value||14,
+        bpLevels: +document.getElementById('bpLevels').value||20,
+        bpFreeCurrency: +document.getElementById('bpFreeCurrency').value||3000,
+        bpPremiumCurrency: +document.getElementById('bpPremiumCurrency').value||7500,
+        bpEnergyPacks: +document.getElementById('bpEnergyPacks').value||30,
+        skins: skins,
+        simCount: +document.getElementById('simCount').value||1000,
+        seed: +document.getElementById('seed').value||0,
+        horizon: +document.getElementById('horizon').value||90,
+        pct: {
+          hardcore: (+document.getElementById('pct_hardcore').value||10)/100,
+          active: (+document.getElementById('pct_active').value||25)/100,
+          casual: (+document.getElementById('pct_casual').value||40)/100,
+          dolphin: (+document.getElementById('pct_dolphin').value||15)/100,
+          whale: (+document.getElementById('pct_whale').value||10)/100
+        },
+        races: { hardcore:parseRaces('races_hardcore'), active:parseRaces('races_active'), casual:parseRaces('races_casual'), dolphin:parseRaces('races_dolphin'), whale:parseRaces('races_whale') },
+        skip: { hardcore:0, active:1, casual:3, dolphin:0, whale:0 },
+        skill: { hardcore:parseSkill('skill_hardcore'), active:parseSkill('skill_active'), casual:parseSkill('skill_casual'), dolphin:parseSkill('skill_dolphin'), whale:parseSkill('skill_whale') },
+        quest: { hardcore:100, active:80, casual:40, dolphin:90, whale:95 },
+        energy: { hardcore:0, active:0, casual:0, dolphin: +document.getElementById('energy_dolphin').value||5, whale: +document.getElementById('energy_whale').value||20 },
+        buySkins: { hardcore:false, active:0.5, casual:false, dolphin:true, whale:true },
+        hasBP: { hardcore:false, active:false, casual:false, dolphin:true, whale:true }
+      };
+    }
+
+    function assignType(rand, p) {
+      const r = rand();
+      if(r < p.pct.hardcore) return 'hardcore';
+      if(r < p.pct.hardcore + p.pct.active) return 'active';
+      if(r < p.pct.hardcore + p.pct.active + p.pct.casual) return 'casual';
+      if(r < p.pct.hardcore + p.pct.active + p.pct.casual + p.pct.dolphin) return 'dolphin';
+      return 'whale';
+    }
+
+    function simulatePlayer(rand, p, type) {
+      const skipDays = +(document.getElementById('skip_'+type)?.value||0);
+      const racesCfg = p.races[type];
+      const skillCfg = p.skill[type];
+      const questPct = (+document.getElementById('quest_'+type).value||80)/100;
+      const energyBuy = p.energy[type]||0;
+      const buySkins = type==='active' ? ((+document.getElementById('skin_active').value||50)/100) : (p.buySkins[type]?1:0);
+      const hasBP = p.hasBP[type];
+
+      const parts = p.partsCount;
+      const partLevels = Array(parts).fill(1);
+      const totalUpgCost = p.upgCosts.reduce((a,b)=>a+b,0);
+      const skinCosts = SKIN_LEVELS.map(l=>p.skins[l]||0);
+
+      let currency = 0;
+      const bpDayInSeason = p.bpDays;
+      let dayInSeason = 0;
+      let daysToMax = null;
+      let daysToL5 = null;
+      let firstPaywallDay = null;
+      let maxPaywallDays = 0;
+      let currentPaywallDays = 0;
+
+      const incomeByDay = [];
+      const spendByDay = [];
+      const balanceByDay = [];
+      const levelByDay = [];
+      const paywallByLevel = Array(9).fill(0);
+
+      const playProb = (7 - skipDays) / 7;
+
+      for(let day = 1; day <= p.horizon; day++) {
+        if(rand() > playProb) {
+          incomeByDay.push(0);
+          spendByDay.push(0);
+          balanceByDay.push(currency);
+          levelByDay.push(partLevels.reduce((a,b)=>a+b,0)/parts);
+          continue;
+        }
+
+        let racesToday = Math.max(0, Math.min(p.dailyRaces + energyBuy, Math.round(gaussian(rand, racesCfg.mean, racesCfg.std))));
+        let raceIncome = 0;
+        for(let r = 0; r < racesToday; r++) {
+          let pos = Math.round(gaussian(rand, skillCfg.mean, skillCfg.std));
+          pos = Math.max(1, Math.min(6, pos));
+          raceIncome += p.rewards[pos];
+        }
+
+        let questIncome = rand() < questPct ? p.dailyQuestReward : p.dailyQuestReward * 0.5;
+        dayInSeason = (dayInSeason % bpDayInSeason) + 1;
+        let bpIncome = p.bpFreeCurrency / bpDayInSeason;
+        if(hasBP) bpIncome += p.bpPremiumCurrency / bpDayInSeason;
+        const extraRaces = hasBP ? Math.floor((p.bpEnergyPacks / bpDayInSeason) * racesToday / p.dailyRaces) : 0;
+        racesToday += extraRaces;
+        for(let r = 0; r < extraRaces; r++) {
+          let pos = Math.round(gaussian(rand, skillCfg.mean, skillCfg.std));
+          pos = Math.max(1, Math.min(6, pos));
+          raceIncome += p.rewards[pos];
+        }
+
+        const dailyIncome = raceIncome + questIncome + bpIncome;
+        currency += dailyIncome;
+        incomeByDay.push(dailyIncome);
+
+        let spent = 0;
+        const minLevel = Math.min(...partLevels);
+        const cheapestPart = partLevels.indexOf(minLevel);
+        if(minLevel < 10) {
+          const cost = p.upgCosts[minLevel - 1];
+          if(currency >= cost) {
+            currency -= cost;
+            spent += cost;
+            partLevels[cheapestPart]++;
+            currentPaywallDays = 0;
+            if(buySkins > 0 && rand() < buySkins) {
+              const skinCost = skinCosts[SKIN_LEVELS.indexOf(partLevels[cheapestPart])];
+              if(skinCost && currency >= skinCost) { currency -= skinCost; spent += skinCost; }
+            }
+          } else {
+            currentPaywallDays++;
+            if(firstPaywallDay === null) firstPaywallDay = day;
+            maxPaywallDays = Math.max(maxPaywallDays, currentPaywallDays);
+            paywallByLevel[minLevel - 1]++;
+          }
+        }
+        spendByDay.push(spent);
+        balanceByDay.push(currency);
+        levelByDay.push(partLevels.reduce((a,b)=>a+b,0)/parts);
+
+        if(partLevels.every(l=>l>=5) && daysToL5===null) daysToL5 = day;
+        if(partLevels.every(l=>l>=10) && daysToMax===null) daysToMax = day;
+      }
+
+      return { type, partLevels, daysToMax, daysToL5, firstPaywallDay, maxPaywallDays, incomeByDay, spendByDay, balanceByDay, levelByDay, paywallByLevel };
+    }
+
+    let simResults = null;
+    let charts = {};
+
+    async function runSimulation() {
+      const p = getParams();
+      const seed = p.seed || Math.floor(Math.random()*0xFFFFFFFF);
+      const rand = mulberry32(seed);
+
+      document.getElementById('progressContainer').style.display = 'block';
+      document.getElementById('progressBar').style.width = '0%';
+
+      const batchSize = 100;
+      const players = [];
+      for(let i = 0; i < p.simCount; i++) {
+        const type = assignType(rand, p);
+        players.push(simulatePlayer(rand, p, type));
+        if((i+1) % batchSize === 0) {
+          document.getElementById('progressBar').style.width = ((i+1)/p.simCount*100) + '%';
+          await new Promise(r=>setTimeout(r,0));
+        }
+      }
+
+      document.getElementById('progressContainer').style.display = 'none';
+      simResults = { players, params: p };
+      renderResults();
+    }
+
+    function percentile(arr, p) {
+      const s = [...arr].filter(x=>x!=null).sort((a,b)=>a-b);
+      if(s.length===0) return null;
+      const i = (p/100)*(s.length-1);
+      return s[Math.floor(i)] + (s[Math.ceil(i)]-s[Math.floor(i)])*(i%1);
+    }
+
+    function renderResults() {
+      if(!simResults) return;
+      const { players, params } = simResults;
+
+      const byType = {};
+      TYPES.forEach(t=>byType[t] = players.filter(p=>p.type===t));
+
+      const daysToMaxArr = players.map(p=>p.daysToMax).filter(x=>x!=null);
+      const daysToL5Arr = players.map(p=>p.daysToL5).filter(x=>x!=null);
+      const firstPaywallArr = players.map(p=>p.firstPaywallDay).filter(x=>x!=null);
+      const maxPaywallArr = players.map(p=>p.maxPaywallDays);
+
+      const kpi = [
+        { label: 'Дней до полной прокачки', vals: daysToMaxArr },
+        { label: 'Дней до ур.5 (все запчасти)', vals: daysToL5Arr },
+        { label: 'Дней до первого пейволла', vals: firstPaywallArr },
+        { label: 'Самый длинный пейволл (дней)', vals: maxPaywallArr }
+      ];
+
+      let html = '';
+      kpi.forEach(k=>{
+        const p10 = percentile(k.vals, 10);
+        const med = percentile(k.vals, 50);
+        const p90 = percentile(k.vals, 90);
+        html += `<div class="kpi-card"><div class="label">${k.label}</div><div class="p10">P10: ${p10!=null?Math.round(p10):'—'}</div><div class="median">Медиана: ${med!=null?Math.round(med):'—'}</div><div class="p90">P90: ${p90!=null?Math.round(p90):'—'}</div></div>`;
+      });
+      document.getElementById('kpiGrid').innerHTML = html;
+
+      const typeNames = { hardcore:'Хардкор', active:'Активный F2P', casual:'Казуал', dolphin:'Дельфин', whale:'Кит' };
+      let tableHtml = '<table><tr><th>Уровень</th>' + TYPES.map(t=>'<th>'+typeNames[t]+'</th>').join('') + '</tr>';
+      for(let lvl=2; lvl<=10; lvl++) {
+        const cells = [];
+        TYPES.forEach(t=>{
+          const arr = byType[t].map(pl=>{
+            for(let d=1; d<=params.horizon; d++) {
+              const avg = pl.levelByDay[d-1];
+              if(avg != null && avg >= lvl) return d;
+            }
+            return null;
+          }).filter(x=>x!=null);
+          const med = percentile(arr, 50);
+          cells.push(med!=null ? 'День '+Math.round(med) : params.horizon+'+');
+        });
+        tableHtml += '<tr><td>Ур.'+lvl+(lvl===10?' (все)':'')+'</td>' + cells.map(v=>'<td class="'+(v.includes('+')?'overflow':'')+'">'+v+'</td>').join('') + '</tr>';
+      }
+      tableHtml += '</table>';
+      document.getElementById('progressionTable').innerHTML = '<h3>Прогрессия по типам</h3>' + tableHtml;
+
+      const casualMax = byType.casual.filter(p=>p.daysToMax!=null).length;
+      const casualTotal = byType.casual.length;
+      const whaleMed = percentile(byType.whale.map(p=>p.daysToMax).filter(x=>x!=null), 50);
+      const hardcoreMed = percentile(byType.hardcore.map(p=>p.daysToMax).filter(x=>x!=null), 50);
+      const ratio = whaleMed && hardcoreMed ? hardcoreMed/whaleMed : 0;
+
+      let health = '';
+      if(casualTotal>0) {
+        const pct = casualMax/casualTotal*100;
+        if(pct>=80) health += '🟢 Казуал доходит до макс. за 90 дней ('+Math.round(pct)+'%) ';
+        else if(pct>=50) health += '🟡 Казуал доходит частично ';
+        else health += '🔴 Казуал не доходит за 90 дней ';
+      }
+      if(ratio>=2 && ratio<=4) health += '🟢 Кит быстрее F2P в 2-3 раза ';
+      else if(ratio>4) health += '🔴 Кит быстрее в 5+ раз (pay-to-win) ';
+      document.getElementById('healthIndicator').innerHTML = health || '—';
+
+      const days = Array.from({length: params.horizon}, (_,i)=>i+1);
+      const colors = ['#EF5350','#FFA726','#FFEE58','#66BB6A','#4FC3F7'];
+
+      if(charts.progression) charts.progression.destroy();
+      charts.progression = new Chart(document.getElementById('chartProgression'), {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: TYPES.map((t,i)=>({
+            label: typeNames[t],
+            data: days.map(d=>{
+              const arr = byType[t].map(p=>p.levelByDay[d-1]).filter(x=>x!=null);
+              return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+            }),
+            borderColor: colors[i],
+            fill: false,
+            tension: 0.2
+          }))
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { min: 1, max: 10 } } }
+      });
+
+      const paywallData = TYPES.map((t,i)=>({
+        label: typeNames[t],
+        data: [1,2,3,4,5,6,7,8,9].map(lvl=>{
+          const arr = byType[t].map(p=>p.paywallByLevel[lvl-1]);
+          return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+        }),
+        backgroundColor: colors[i]
+      }));
+      if(charts.paywall) charts.paywall.destroy();
+      charts.paywall = new Chart(document.getElementById('chartPaywall'), {
+        type: 'bar',
+        data: { labels: ['1→2','2→3','3→4','4→5','5→6','6→7','7→8','8→9','9→10'], datasets: paywallData },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+      });
+
+      if(charts.balance) charts.balance.destroy();
+      charts.balance = new Chart(document.getElementById('chartBalance'), {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: TYPES.map((t,i)=>({
+            label: typeNames[t],
+            data: days.map(d=>{
+              const arr = byType[t].map(p=>p.balanceByDay[d-1]).filter(x=>x!=null);
+              return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+            }),
+            borderColor: colors[i],
+            fill: false,
+            tension: 0.2
+          }))
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+      });
+
+      updateIncomeChart();
+      updateDistributionChart();
+      updateDetailTable();
+    }
+
+    function updateIncomeChart() {
+      if(!simResults) return;
+      const type = document.getElementById('incomeChartType').value;
+      const { players, params } = simResults;
+      const byType = players.filter(p=>p.type===type);
+      if(byType.length===0) return;
+      const days = Array.from({length: params.horizon}, (_,i)=>i+1);
+      const income = days.map(d=>byType.reduce((s,p)=>s+(p.incomeByDay[d-1]||0),0)/byType.length);
+      const spend = days.map(d=>byType.reduce((s,p)=>s+(p.spendByDay[d-1]||0),0)/byType.length);
+      if(charts.income) charts.income.destroy();
+      charts.income = new Chart(document.getElementById('chartIncome'), {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [
+            { label: 'Доход', data: income, borderColor: '#66BB6A', fill: true, backgroundColor: 'rgba(102,187,106,0.2)' },
+            { label: 'Расход', data: spend, borderColor: '#EF5350', fill: true, backgroundColor: 'rgba(239,83,80,0.2)' }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+      });
+    }
+
+    function updateDistributionChart() {
+      if(!simResults) return;
+      const { players, params } = simResults;
+      const vals = players.map(p=>p.daysToMax).filter(x=>x!=null);
+      const buckets = {};
+      for(let i=0; i<=params.horizon; i+=5) buckets[i] = 0;
+      vals.forEach(v=>{ const b = Math.min(params.horizon, Math.floor(v/5)*5); buckets[b] = (buckets[b]||0)+1; });
+      if(charts.dist) charts.dist.destroy();
+      charts.dist = new Chart(document.getElementById('chartDistribution'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(buckets).map(k=>k+'-'+(+k+5)),
+          datasets: [{ label: 'Игроков', data: Object.values(buckets), backgroundColor: '#4FC3F7' }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+
+    function updateDetailTable() {
+      if(!simResults) return;
+      const { players, params } = simResults;
+      const days = [1,7,14,30,60,90].filter(d=>d<=params.horizon);
+      let html = '<h3>Детальная таблица</h3><table><tr><th>День</th><th>Средний ур.</th><th>Доход (кумулят.)</th><th>Расход</th><th>Баланс</th><th>% на макс.</th></tr>';
+      days.forEach(d=>{
+        const idx = d-1;
+        const avgLvl = players.reduce((s,p)=>s+(p.levelByDay[idx]||0),0)/players.length;
+        const totalIncome = players.reduce((s,p)=>s+p.incomeByDay.slice(0,d).reduce((a,b)=>a+b,0),0)/players.length;
+        const totalSpend = players.reduce((s,p)=>s+p.spendByDay.slice(0,d).reduce((a,b)=>a+b,0),0)/players.length;
+        const avgBal = players.reduce((s,p)=>s+(p.balanceByDay[idx]||0),0)/players.length;
+        const pctMax = players.filter(p=>p.daysToMax!=null && p.daysToMax<=d).length / players.length * 100;
+        html += `<tr><td>${d}</td><td>${avgLvl.toFixed(1)}</td><td>${Math.round(totalIncome)}</td><td>${Math.round(totalSpend)}</td><td>${Math.round(avgBal)}</td><td>${pctMax.toFixed(0)}%</td></tr>`;
+      });
+      html += '</table>';
+      document.getElementById('detailTable').innerHTML = html;
+    }
+
+    function updateUpgTotal() {
+      const upg = [];
+      for(let i=1;i<=9;i++) upg.push(+(document.getElementById('upg'+i).value)||0);
+      const one = upg.reduce((a,b)=>a+b,0);
+      const parts = +(document.getElementById('partsCount').value)||4;
+      document.getElementById('upgTotal').textContent = `Итого на 1 запчасть: ${one.toLocaleString()}. На все ${parts}: ${(one*parts).toLocaleString()}.`;
+    }
+
+    function updateSkinTotal() {
+      const s2=+document.getElementById('skin2').value||0, s4=+document.getElementById('skin4').value||0, s6=+document.getElementById('skin6').value||0, s8=+document.getElementById('skin8').value||0, s10=+document.getElementById('skin10').value||0;
+      const one = s2+s4+s6+s8+s10;
+      const parts = +(document.getElementById('partsCount').value)||4;
+      document.getElementById('skinTotal').textContent = `Итого на скины всех ${parts} запчастей: ${(one*parts).toLocaleString()}.`;
+    }
+
+    function syncUrl() {
+      const p = getParams();
+      const params = new URLSearchParams();
+      params.set('dailyRaces', p.dailyRaces);
+      p.rewards.slice(1).forEach((r,i)=>params.set('r'+(i+1), r));
+      params.set('partsCount', p.partsCount);
+      params.set('upgCosts', p.upgCosts.join(','));
+      params.set('dailyQuestReward', p.dailyQuestReward);
+      params.set('questCompletionRate', p.questCompletionRate*100);
+      params.set('bpDays', p.bpDays);
+      params.set('bpLevels', p.bpLevels);
+      params.set('bpFreeCurrency', p.bpFreeCurrency);
+      params.set('bpPremiumCurrency', p.bpPremiumCurrency);
+      params.set('bpEnergyPacks', p.bpEnergyPacks);
+      params.set('skin2', p.skins[2]);
+      params.set('skin4', p.skins[4]);
+      params.set('skin6', p.skins[6]);
+      params.set('skin8', p.skins[8]);
+      params.set('skin10', p.skins[10]);
+      params.set('simCount', p.simCount);
+      params.set('seed', p.seed);
+      params.set('horizon', p.horizon);
+      history.replaceState(null,'', '?'+params.toString());
+    }
+
+    function loadFromUrl() {
+      const params = new URLSearchParams(location.search);
+      if(params.has('dailyRaces')) document.getElementById('dailyRaces').value = params.get('dailyRaces');
+      [1,2,3,4,5,6].forEach(i=>{ if(params.has('r'+i)) document.getElementById('reward'+i).value = params.get('r'+i); });
+      if(params.has('partsCount')) document.getElementById('partsCount').value = params.get('partsCount');
+      if(params.has('upgCosts')) params.get('upgCosts').split(',').forEach((v,i)=>{ if(document.getElementById('upg'+(i+1))) document.getElementById('upg'+(i+1)).value = v; });
+      if(params.has('dailyQuestReward')) document.getElementById('dailyQuestReward').value = params.get('dailyQuestReward');
+      if(params.has('questCompletionRate')) document.getElementById('questCompletionRate').value = params.get('questCompletionRate');
+      if(params.has('bpDays')) document.getElementById('bpDays').value = params.get('bpDays');
+      if(params.has('bpLevels')) document.getElementById('bpLevels').value = params.get('bpLevels');
+      if(params.has('bpFreeCurrency')) document.getElementById('bpFreeCurrency').value = params.get('bpFreeCurrency');
+      if(params.has('bpPremiumCurrency')) document.getElementById('bpPremiumCurrency').value = params.get('bpPremiumCurrency');
+      if(params.has('bpEnergyPacks')) document.getElementById('bpEnergyPacks').value = params.get('bpEnergyPacks');
+      [2,4,6,8,10].forEach(l=>{ if(params.has('skin'+l)) document.getElementById('skin'+l).value = params.get('skin'+l); });
+      if(params.has('simCount')) document.getElementById('simCount').value = params.get('simCount');
+      if(params.has('seed')) document.getElementById('seed').value = params.get('seed');
+      if(params.has('horizon')) document.getElementById('horizon').value = params.get('horizon');
+    }
+
+    function copyLink() {
+      syncUrl();
+      navigator.clipboard.writeText(location.href);
+      const t = document.getElementById('toast');
+      t.style.display = 'block';
+      setTimeout(()=>t.style.display='none', 2000);
+    }
+
+    function resetDefaults() {
+      document.getElementById('dailyRaces').value = 15;
+      [120,90,70,40,30,20].forEach((v,i)=>document.getElementById('reward'+(i+1)).value = v);
+      document.getElementById('partsCount').value = 4;
+      [100,150,225,340,510,765,1150,1725,2600].forEach((v,i)=>document.getElementById('upg'+(i+1)).value = v);
+      document.getElementById('dailyQuestReward').value = 450;
+      document.getElementById('questCompletionRate').value = 80;
+      document.getElementById('bpDays').value = 14;
+      document.getElementById('bpLevels').value = 20;
+      document.getElementById('bpFreeCurrency').value = 3000;
+      document.getElementById('bpPremiumCurrency').value = 7500;
+      document.getElementById('bpEnergyPacks').value = 30;
+      [300,600,1000,1600,2500].forEach((v,i)=>document.getElementById(['skin2','skin4','skin6','skin8','skin10'][i]).value = v);
+      document.getElementById('simCount').value = 1000;
+      document.getElementById('seed').value = 0;
+      document.getElementById('horizon').value = 90;
+      document.getElementById('pct_hardcore').value = 10;
+      document.getElementById('pct_active').value = 25;
+      document.getElementById('pct_casual').value = 40;
+      document.getElementById('pct_dolphin').value = 15;
+      document.getElementById('pct_whale').value = 10;
+      updateUpgTotal();
+      updateSkinTotal();
+      history.replaceState(null,'', location.pathname);
+      runSimulation();
+    }
+
+    function applyPreset(name) {
+      if(name==='aggressive') {
+        document.getElementById('dailyRaces').value = 10;
+        document.getElementById('reward1').value = 80;
+        document.getElementById('reward2').value = 60;
+        document.getElementById('reward3').value = 50;
+        document.getElementById('reward4').value = 30;
+        document.getElementById('reward5').value = 20;
+        document.getElementById('reward6').value = 10;
+        document.getElementById('upg7').value = 1500;
+        document.getElementById('upg8').value = 2200;
+        document.getElementById('upg9').value = 3300;
+        document.getElementById('dailyQuestReward').value = 300;
+      } else if(name==='generous') {
+        document.getElementById('dailyRaces').value = 25;
+        document.getElementById('reward1').value = 150;
+        document.getElementById('reward2').value = 120;
+        document.getElementById('reward3').value = 90;
+        document.getElementById('reward4').value = 60;
+        document.getElementById('reward5').value = 45;
+        document.getElementById('reward6').value = 30;
+        document.getElementById('upg7').value = 900;
+        document.getElementById('upg8').value = 1300;
+        document.getElementById('upg9').value = 2000;
+        document.getElementById('dailyQuestReward').value = 550;
+      }
+      updateUpgTotal();
+      updateSkinTotal();
+      runSimulation();
+    }
+
+    let debounceTimer;
+    function scheduleSim() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(()=>{ syncUrl(); runSimulation(); }, 500);
+    }
+
+    document.querySelectorAll('.params-panel input').forEach(inp=>{
+      inp.addEventListener('change', scheduleSim);
+      inp.addEventListener('input', scheduleSim);
+    });
+
+    loadFromUrl();
+    updateUpgTotal();
+    updateSkinTotal();
+    runSimulation();
+  </script>
+</body>
+</html>
